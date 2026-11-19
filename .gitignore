@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# PyCharm & macOS
+.idea/
+*.iml
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Environment & Secrets
+.env
+.env.local
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log

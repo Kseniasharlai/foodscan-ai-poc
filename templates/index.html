@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <div class="brand">
+                <span class="brand-icon">🥗</span>
+                <div>
+                    <h1>FoodScan AI</h1>
+                    <p>Інтелектуальний аналіз складу продуктів за штрихкодом</p>
+                </div>
+            </div>
+            <div class="status-pill {{ 'status-active' if gemini_configured else 'status-demo' }}">
+                {% if gemini_configured %}
+                    ● Google Gemini API підключено
+                {% else %}
+                    ● Демо-режим (додайте GEMINI_API_KEY у .env)
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="search-card">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="barcode-tab">Пошук за штрихкодом (EAN-13)</button>
+                <button class="tab-btn" data-tab="custom-tab">Перевірка тексту етикетки</button>
+            </div>
+
+            <div id="barcode-tab" class="tab-content active">
+                <form id="barcode-form" class="input-row">
+                    <input
+                        type="text"
+                        id="barcode-input"
+                        placeholder="Введіть штрихкод (напр., 3017620422003)"
+                        pattern="[0-9]{8,14}"
+                        required
+                    >
+                    <button type="submit" class="btn-primary">Аналізувати продукт</button>
+                </form>
+
+                <div class="samples-box">
+                    <span class="samples-label">Швидкі приклади для демонстрації:</span>
+                    <div class="samples-list">
+                        {% for s in samples %}
+                        <button type="button" class="sample-chip" data-barcode="{{ s.barcode }}">
+                            <strong>{{ s.barcode }}</strong> — {{ s.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div id="custom-tab" class="tab-content">
+                <form id="custom-form" class="custom-grid">
+                    <input type="text" id="custom-name" placeholder="Назва продукту (напр., Йогурт полуничний)" required>
+                    <textarea id="custom-ingredients" rows="3" placeholder="Вставте склад продукту з етикетки..." required></textarea>
+                    <div class="macro-inputs">
+                        <label>Цукри (г/100г)<input type="number" step="0.1" id="custom-sugars" value="12.5"></label>
+                        <label>Насичені жири (г)<input type="number" step="0.1" id="custom-satfat" value="2.1"></label>
+                        <label>Сіль (г/100г)<input type="number" step="0.01" id="custom-salt" value="0.2"></label>
+                        <label>Білки (г/100г)<input type="number" step="0.1" id="custom-proteins" value="4.2"></label>
+                    </div>
+                    <button type="submit" class="btn-primary">Оцінити склад за допомогою AI</button>
+                </form>
+            </div>
+        </section>
+
+        <div id="loader" class="loader hidden">
+            <div class="spinner"></div>
+            <p>Отримання даних з Open Food Facts та AI-аналіз у Google Gemini API...</p>
+        </div>
+
+        <div id="error-box" class="error-box hidden"></div>
+
+        <section id="result-section" class="result-section hidden">
+            <div class="grid-main">
+                <div class="card product-card">
+                    <div class="product-header">
+                        <img id="prod-img" src="" alt="Фото продукту" class="prod-img hidden">
+                        <div>
+                            <span id="prod-barcode" class="badge-code"></span>
+                            <h2 id="prod-name"></h2>
+                            <p id="prod-brand" class="muted"></p>
+                            <div class="classification-badges">
+                                <span id="nutriscore-badge" class="pill"></span>
+                                <span id="nova-badge" class="pill"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-panel">
+                        <div class="score-circle" id="score-circle">
+                            <span id="health-score">0</span>
+                            <small>/100</small>
+                        </div>
+                        <div class="score-details">
+                            <span id="verdict-badge" class="verdict-tag"></span>
+                            <p id="ai-summary"></p>
+                        </div>
+                    </div>
+
+                    <div class="ingredients-box">
+                        <h3>Склад продукту</h3>
+                        <p id="prod-ingredients"></p>
+                    </div>
+
+                    <div id="allergens-box" class="allergens-box hidden">
+                        <strong>⚠️ Алергени:</strong> <span id="prod-allergens"></span>
+                    </div>
+                </div>
+
+                <div class="card analysis-card">
+                    <h3>Поживна цінність на 100 г</h3>
+                    <div class="nutrients-grid" id="nutrients-grid"></div>
+
+                    <div class="pros-cons-grid">
+                        <div class="pros-box">
+                            <h4>✅ Переваги складу</h4>
+                            <ul id="pros-list"></ul>
+                        </div>
+                        <div class="cons-box">
+                            <h4>⚠️ Ризики та зауваження</h4>
+                            <ul id="cons-list"></ul>
+                        </div>
+                    </div>
+
+                    <div class="additives-section">
+                        <h4>Харчові добавки (E-коди)</h4>
+                        <div id="additives-list" class="additives-list"></div>
+                    </div>
+
+                    <div class="recommendation-box">
+                        <h4>💡 Рекомендація AI-нутриціолога</h4>
+                        <p id="ai-recommendation"></p>
+                    </div>
+
+                    <div class="meta-footer" id="api-meta"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            PoC-проєкт • FastAPI + Open Food Facts REST API + Google Cloud Gemini API • <a href="/docs" target="_blank">Swagger API Docs</a>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
